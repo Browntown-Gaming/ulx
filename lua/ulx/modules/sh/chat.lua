@@ -1,14 +1,27 @@
 -- This module holds any type of chatting functions
 CATEGORY_NAME = "Chat"
+local seepsayAccess = "ulx seepsay"
+if SERVER then ULib.ucl.registerAccess( seepsayAccess, ULib.ACCESS_OPERATOR, "Ability to see 'ulx psay'", "Other" ) end -- Give operators access to see psay echoes by default
 
 ------------------------------ Psay ------------------------------
 function ulx.psay( calling_ply, target_ply, message )
-	if calling_ply:GetNWBool( "ulx_muted", false ) then
-		ULib.tsayError( calling_ply, "You are muted, and therefore cannot speak! Use asay for admin chat if urgent.", true )
-		return
+	if engine.ActiveGamemode() == "terrortown" then
+		local ovr_psay = ( ULib.ucl.query( calling_ply, seepsayAccess ) or ULib.ucl.query( target_ply, seepsayAccess ) )
+		local cp_alive = ( calling_ply:Alive() and calling_ply:IsTerror() )
+		local tp_alive = ( target_ply:Alive() and target_ply:IsTerror() )
+		if GetRoundState() == ROUND_ACTIVE and (cp_alive == false and tp_alive == true) and ovr_psay == false then
+			ULib.tsayError( calling_ply, "To prevent ghosting, you cannot private message a living player.", true )
+			return
+		end	
 	end
-
-	ulx.fancyLog( { target_ply, calling_ply }, "#P to #P: " .. message, calling_ply, target_ply )
+	local players = player.GetAll()
+	for i=#players, 1, -1 do
+		local v = players[ i ]
+		if not ULib.ucl.query( v, seepsayAccess ) and v ~= calling_ply and v ~= target_ply then -- Calling player always gets to see the echo
+			table.remove( players, i )
+		end
+	end
+	ulx.fancyLog( players, "#P to #P: " .. message, calling_ply, target_ply )
 end
 local psay = ulx.command( CATEGORY_NAME, "ulx psay", ulx.psay, "!p", true )
 psay:addParam{ type=ULib.cmds.PlayerArg, target="!^", ULib.cmds.ignoreCanTarget }
@@ -19,6 +32,7 @@ psay:help( "Send a private message to target." )
 ------------------------------ Asay ------------------------------
 local seeasayAccess = "ulx seeasay"
 if SERVER then ULib.ucl.registerAccess( seeasayAccess, ULib.ACCESS_OPERATOR, "Ability to see 'ulx asay'", "Other" ) end -- Give operators access to see asays echoes by default
+
 
 function ulx.asay( calling_ply, message )
 	local format
